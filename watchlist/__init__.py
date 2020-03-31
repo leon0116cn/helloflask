@@ -23,9 +23,8 @@ db = SQLAlchemy(app)
 
 @app.route('/')
 def index():
-    user = db.session.query(User).first()
     movies = db.session.query(Movie).all()
-    return render_template('index.html', user=user, movies=movies)
+    return render_template('index.html', movies=movies)
 
 
 @app.cli.command()
@@ -66,6 +65,18 @@ def forge():
     click.echo('Done.')
 
 
+@app.context_processor
+def inject_user():
+    user = db.session.query(User).first()
+    return dict(user=user)
+
+
+@app.errorhandler(404)
+def page_not_found(e):
+    user = db.session.query(User).first()
+    return render_template('404.html'), 404
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50))
@@ -79,4 +90,6 @@ class Movie(db.Model):
     year = db.Column(db.String(4))
 
     def __repr__(self):
-        return '<Movie(id={}, title={}, year={})>'.format(self.id, self.title, self.year)
+        return '<Movie(id={}, title={}, year={})>'.format(
+            self.id, self.title, self.year
+            )
