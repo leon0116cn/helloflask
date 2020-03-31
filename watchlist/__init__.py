@@ -1,6 +1,7 @@
 import os
 import sys
 from flask import Flask, render_template
+from flask_sqlalchemy import SQLAlchemy
 
 
 name = 'LV'
@@ -26,9 +27,23 @@ else:
 
 
 app = Flask(__name__)
-
+app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(os.path.dirname(app.root_path), 'data.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', name=name, movies=movies)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+
+class Movie(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    year = db.Column(db.String(4))
+
