@@ -1,5 +1,6 @@
 import os
 import sys
+import click
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 
@@ -35,6 +36,17 @@ db = SQLAlchemy(app)
 @app.route('/')
 def index():
     return render_template('index.html', name=name, movies=movies)
+
+
+@app.cli.command()
+@click.option('--drop', is_flag=True, help='Create after drop.')
+def init_db(drop):
+    '''Initialize the database.'''
+    if drop:
+        db.drop_all()
+        click.echo('Droped the database.')
+    db.create_all()
+    click.echo('Initialized the database.')
 
 
 class User(db.Model):
