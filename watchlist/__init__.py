@@ -22,13 +22,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
-@app.route('/', method=['POST', 'GET'])
+@app.route('/', methods=['POST', 'GET'])
 def index():
     if request.method == 'POST':
         title = request.form.get('title')
         year = request.form.get('year')
 
-        if title or year or len(year) > 4 or len(title) > 100:
+        if not title or not year or len(year) > 4 or len(title) > 100:
             flash('Invalid Input.')
             return redirect(url_for('index'))
         
@@ -42,7 +42,7 @@ def index():
     return render_template('index.html', movies=movies)
 
 
-@app.route('/movie/edit/<int:movie_id>', method=['POST', 'GET'])
+@app.route('/movie/edit/<int:movie_id>', methods=['POST', 'GET'])
 def edit(movie_id):
     movie = Movie.query.get_or_404(movie_id)
     
@@ -56,19 +56,19 @@ def edit(movie_id):
         
         movie.title = title
         movie.year = year
-        db.sesstion.add(movie)
-        db.sesstion.commit()
+        db.session.add(movie)
+        db.session.commit()
         flash('Item updated.')
         return redirect(url_for('index'))
 
     return render_template('edit.html', movie=movie)
 
 
-@app.route('/movie/delete/<int:movie_id>', method=['POST'])
+@app.route('/movie/delete/<int:movie_id>', methods=['POST'])
 def delete(movie_id):
     movie = Movie.query.get_or_404(movie_id)
     db.session.delete(movie)
-    db.session.commmit()
+    db.session.commit()
     flash('Item deleted.')
     return redirect(url_for('index'))
 
