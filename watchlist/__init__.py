@@ -38,8 +38,39 @@ def index():
         flash('Item created.')
         return redirect(url_for('index'))
             
-    movies = db.session.query(Movie).all()
+    movies = Movie.query.all()
     return render_template('index.html', movies=movies)
+
+
+@app.route('/movie/edit/<int:movie_id>', method=['POST', 'GET'])
+def edit(movie_id):
+    movie = Movie.query.get_or_404(movie_id)
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        year = request.form.get('year')
+
+        if not title or not year or len(title) > 100 or len(year) > 4:
+            flash('Invalid Input.')
+            return redirect(url_for('edit', movie_id=movie_id))
+        
+        movie.title = title
+        movie.year = year
+        db.sesstion.add(movie)
+        db.sesstion.commit()
+        flash('Item updated.')
+        return redirect(url_for('index'))
+
+    return render_template('edit.html', movie=movie)
+
+
+@app.route('/movie/delete/<int:movie_id>', method=['POST'])
+def delete(movie_id):
+    movie = Movie.query.get_or_404(movie_id)
+    db.session.delete(movie)
+    db.session.commmit()
+    flash('Item deleted.')
+    return redirect(url_for('index'))
 
 
 @app.cli.command()
@@ -88,7 +119,7 @@ def inject_user():
 
 @app.errorhandler(404)
 def page_not_found(e):
-    user = db.session.query(User).first()
+    user = User.query.first()
     return render_template('404.html'), 404
 
 
