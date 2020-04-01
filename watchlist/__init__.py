@@ -1,8 +1,8 @@
-import os
-import sys
-import click
+import os, sys, click
 from flask import Flask, render_template, request, flash, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 
 WIN = sys.platform.startswith('win')
@@ -13,18 +13,26 @@ else:
 
 
 app = Flask(__name__)
+
 app.config['SECRET_KEY'] = 'secret key'
 app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(
     os.path.dirname(app.root_path), 'data.db'
     )
 app.config['SQLALCHEMY_ECHO'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
+
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
 
 @app.route('/', methods=['POST', 'GET'])
 def index():
     if request.method == 'POST':
+        if not current_user.is_authenticated:
+            return redirect(url_for('index'))
+
         title = request.form.get('title')
         year = request.form.get('year')
 
@@ -42,7 +50,36 @@ def index():
     return render_template('index.html', movies=movies)
 
 
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if not username or not password:
+            flash('Invalid Input.')
+            return redirect(url_for('login'))
+
+        user = User.query.first()
+        if user.username == username and user.validate_password(password):
+            login_user(user)
+            flash('Login success.')
+            return redirect(url_for('index'))
+        
+        flash('Invalid username or password.')
+        return render_template('login.html')
+            
+
+@app.route('/logout', methods=['POST'])
+@login_required
+def logout():
+    logout_user()
+    flash('Good Bey.')
+    return redirect(url_for('index'))
+
+
 @app.route('/movie/edit/<int:movie_id>', methods=['POST', 'GET'])
+@login_required
 def edit(movie_id):
     movie = Movie.query.get_or_404(movie_id)
     
@@ -56,7 +93,6 @@ def edit(movie_id):
         
         movie.title = title
         movie.year = year
-        db.session.add(movie)
         db.session.commit()
         flash('Item updated.')
         return redirect(url_for('index'))
@@ -65,12 +101,58 @@ def edit(movie_id):
 
 
 @app.route('/movie/delete/<int:movie_id>', methods=['POST'])
+@login_required
 def delete(movie_id):
     movie = Movie.query.get_or_404(movie_id)
     db.session.delete(movie)
     db.session.commit()
     flash('Item deleted.')
     return redirect(url_for('index'))
+
+
+@app.route('/settings', methods=['POST', 'GET'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        name = request.form.get('name')
+
+        if not name or len(name) > 50:
+            flash('Invalid Input.')
+            return redirect(url_for('settings'))
+
+        current_user.name = name
+        db.session.commit()
+        flash('Settings is updated.')
+        return redirect(url_for('index'))
+    
+    return render_template('settings.html')
+
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50))
+    username = db.Column(db.String(50))
+    password_hash = db.Column(db.String(128))
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def validate_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return '<User(id={}, name={})>'.format(self.id, self.name)
+
+
+class Movie(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    year = db.Column(db.String(4))
+
+    def __repr__(self):
+        return '<Movie(id={}, title={}, year={})>'.format(
+            self.id, self.title, self.year
+            )
 
 
 @app.cli.command()
@@ -89,7 +171,6 @@ def forge():
     '''Generate fake data.'''
     db.create_all()
 
-    name = 'Leon Lv'
     movies = [
         {'title': 'My Neighbor Totoro', 'year': '1988'},
         {'title': 'Dead Poets Society', 'year': '1989'},
@@ -103,7 +184,6 @@ def forge():
         {'title': 'The Pork of Music', 'year': '2012'},
     ]
 
-    db.session.add(User(name=name))
     for movie in movies:
         db.session.add(Movie(**movie))
     
@@ -111,9 +191,39 @@ def forge():
     click.echo('Done.')
 
 
+@app.cli.command()
+@click.option('--username', prompt=True, help='The username used to login.')
+@click.option(
+    '--password', prompt=True, hide_input=True, confirmation_prompt=True, 
+    help='The password used to login.'
+)
+def admin(username, password):
+    '''创建admin账户'''
+    db.create_all()
+
+    user = User.query.first()
+    if user is not None:
+        click.echo('Updating user...')
+        user.username = username
+        user.set_password(password)
+    else:
+        user = User(name='Admin', username=username)
+        user.set_password(password)
+        db.session.add(user)
+
+    db.session.commit()
+    click.echo('Done.')
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    user = User.query.get(int(user_id))
+    return user
+
+
 @app.context_processor
 def inject_user():
-    user = db.session.query(User).first()
+    user = User.query.first()
     return dict(user=user)
 
 
@@ -121,21 +231,3 @@ def inject_user():
 def page_not_found(e):
     user = User.query.first()
     return render_template('404.html'), 404
-
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
-
-    def __repr__(self):
-        return '<User(id={}, name={})>'.format(self.id, self.name)
-
-class Movie(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    year = db.Column(db.String(4))
-
-    def __repr__(self):
-        return '<Movie(id={}, title={}, year={})>'.format(
-            self.id, self.title, self.year
-            )
