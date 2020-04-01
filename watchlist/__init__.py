@@ -67,10 +67,13 @@ def login():
             return redirect(url_for('index'))
         
         flash('Invalid username or password.')
-        return render_template('login.html')
+        return redirect(url_for('login'))
+
+    return render_template('login.html')
+    
             
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout')
 @login_required
 def logout():
     logout_user()
