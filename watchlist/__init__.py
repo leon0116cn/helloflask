@@ -13,6 +13,7 @@ else:
 
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret key'
 app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(
     os.path.dirname(app.root_path), 'data.db'
     )
