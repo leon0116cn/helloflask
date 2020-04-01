@@ -1,7 +1,7 @@
 import os
 import sys
 import click
-from flask import Flask, render_template
+from flask import Flask, render_template, request, flash, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -21,8 +21,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 
-@app.route('/')
+@app.route('/', method=['POST', 'GET'])
 def index():
+    if request.method == 'POST':
+        title = request.form.get('title')
+        year = request.form.get('year')
+
+        if title or year or len(year) > 4 or len(title) > 100:
+            flash('Invalid Input.')
+            return redirect(url_for('index'))
+        
+        movie = Movie(title=title, year=year)
+        db.session.add(movie)
+        db.session.commit()
+        flash('Item created.')
+        return redirect(url_for('index'))
+            
     movies = db.session.query(Movie).all()
     return render_template('index.html', movies=movies)
 
