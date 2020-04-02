@@ -77,7 +77,7 @@ def login():
 @login_required
 def logout():
     logout_user()
-    flash('Good Bey.')
+    flash('Goodbye.')
     return redirect(url_for('index'))
 
 
@@ -125,7 +125,7 @@ def settings():
 
         current_user.name = name
         db.session.commit()
-        flash('Settings is updated.')
+        flash('Settings updated.')
         return redirect(url_for('index'))
     
     return render_template('settings.html')
@@ -210,6 +210,7 @@ def admin(username, password):
         user.username = username
         user.set_password(password)
     else:
+        click.echo('Creating user...')
         user = User(name='Admin', username=username)
         user.set_password(password)
         db.session.add(user)
