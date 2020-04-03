@@ -15,9 +15,9 @@ else:
 
 app = Flask(__name__)
 
-app.config['SECRET_KEY'] = 'secret key'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'secret key')
 app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(
-    os.path.dirname(app.root_path), 'data.db'
+    os.path.dirname(app.root_path), os.environ.get('DATABASE_FILE', 'data.db')
     )
 app.config['SQLALCHEMY_ECHO'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
